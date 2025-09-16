@@ -101,9 +101,15 @@ for imn in imagesets:
             x_samples = x_samples.clip(0, 1)
             x_samples = (x_samples * 255).astype(np.uint8)
 
-            # --- resize back to original size before saving --- 
-            x_samples_resized = cv2.resize(x_samples, (orig_w, orig_h), interpolation=cv2.INTER_LANCZOS4)
-
+            # --- resize back to original ratio before saving (max. 512) --- 
+            # orig_w, orig_h:
+            max_side = 512
+            scale = min(max_side / max(orig_w, orig_h), 1.0)  # scale for resize
+            
+            new_w = max(1, int(round(orig_w * scale)))
+            new_h = max(1, int(round(orig_h * scale)))
+            interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LANCZOS4
+            x_samples_resized = cv2.resize(x_samples, (new_w, new_h), interpolation=interp)
             image_name = img_path.split('/')[-1]
             Image.fromarray(x_samples_resized).save(fold_name + str(seeds) + '_' + image_name)
 

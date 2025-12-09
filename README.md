@@ -1,6 +1,6 @@
 ## Lumiply Colab (Flask Inference Server)
 
-![cover](images/lumiply_colab_cover.png)
+![demo](images/lumiply_gif_demo.gif)
 
 ## 전체 세팅 순서
 0. 미리 제출한 (전달 드린) 환경 변수 압축 파일을 해제한 뒤 아래 단계에서 필요한 환경 변수 파일들을 준비해주세요. 코랩 환경은 VRAM 11G 이상의 GPU가 필요합니다.
@@ -13,6 +13,8 @@
 7. 로컬 기기에서 [**Lumiply Client**](https://github.com/EthanYJLee/lumiply-client) git을 clone 받습니다 (프로젝트 루트 위치에 **.env.local** 파일이 필요합니다).
 8. **Lumiply Client** 루트 위치에서 의존성을 설치(`npm install`)한 뒤 `npm start`을 실행하여 React를 구동합니다.
 9. 브라우저에서 `http://localhost:3000/` 또는 `http://127.0.0.1:3000/`로 접속하여 서비스를 사용합니다.
+
+![cover](images/lumiply_colab_cover.png)
 
 이 저장소는 원본 [LumiNet](https://github.com/xyxingx/LumiNet/) 코드베이스 위에, **파인튜닝한 Lumiply 체크포인트/어댑터와 Colab용 추론 서버**를 올려 둔 버전입니다.  
 구성은 다음과 같이 이해해주시면 됩니다.

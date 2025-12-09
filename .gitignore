@@ -1,4 +1,5 @@
 # 모델 체크포인트, 어댑터 무시
-ckpt/
-adaptors/
+ckpt/*
+adaptors/*
 *.ckpt
+!adaptors/.gitkeep

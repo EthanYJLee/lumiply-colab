@@ -114,7 +114,7 @@ Colab 런타임에서는 아래 순서대로 실행하면 됩니다.
 1. **작업 디렉터리 이동**
 
    ```python
-   %cd /content/drive/MyDrive/ku-ai/lumiply-colab
+   %cd /content/drive/MyDrive/LumiNet_Files/lumiply-colab
    ```
 
 2. **필요 패키지 설치**

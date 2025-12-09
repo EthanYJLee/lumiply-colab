@@ -1,4 +1,5 @@
 ## Lumiply Colab (Flask Inference Server)
+
 ![cover](images/lumiply_colab_cover.png)
 
 이 저장소는 원본 [LumiNet](https://github.com/xyxingx/LumiNet/) 코드베이스 위에, **Lumiply 프로젝트에서 사용할 Colab용 추론 서버**를 올려 둔 버전입니다.  
@@ -8,7 +9,8 @@
 - `lumiply-server` (FastAPI)를 거쳐
 - **이 Colab 런타임에서 돌아가는 LumiNet 모델**에 조명 이미지를 요청하는 구조입니다.
 
-#### 요구사항: 
+#### 요구사항:
+
 > GPU with VRAM > 11G  
 > open-clip-torch==2.0.1 (필수)  
 > [허깅페이스 (필수)](https://huggingface.co/EthanYJ/Lumiply/tree/main)
@@ -42,42 +44,44 @@
 ```bash
 lumiply-colab/
 ├── adaptors/                # 색상별 adaptor 가중치 (adaptor_white.pth, ... )
-├── ckpt/                    # base / trained cross-attn, new_decoder 등
+├── ckpt/                    # base / trained cross-attn, new_decoder, last.pth.tar 등
 ├── cldm/, ldm/, modi_vae/   # LumiNet 및 Stable Diffusion 관련 코드
+├── font/                    # demo용 폰트
 ├── images/
 │   └── inference/           # /process 요청별 결과(off.png, output_*.jpg)
-├── font/                    # demo용 폰트
 ├── models/                  # LumiNet config (cldm_v21_LumiNet.yaml 등)
-├── lumiply_inference.ipynb      # FastAPI와 연동되는 Colab 메인 노트북
-├── lumiply_ready_for_git.ipynb
-├── relit_inference.py       # 로컬/오프라인 테스트용 스크립트
-├── seed_selection.py        # 결과 중 “좋은 seed”를 찾는 optional 유틸
-├── flux_cleanup.py          # FLUX 기반 후처리(clean‑up) (optional)
-├── gradio_demo.py           # 단독 LumiNet 데모용 Gradio UI
-├── Load_model.py            # 모델 로딩 관련 보조 스크립트
+├── Augmentation.ipynb       # 데이터 증강 파이프라인 정리 노트북
+├── EDA_LPIPS.ipynb          # LPIPS 기반 결과 분석 노트북
+├── EDA_SSIM.ipynb           # SSIM 기반 결과 분석 노트북
+├── lumiply_inference.ipynb  # FastAPI와 연동되는 Colab 메인 노트북
+├── Lumiply.ipynb            # 서버 연동 없이 로컬에서 추론 가능한 코드
+├── README.md
 ├── requirements.txt         # Colab 런타임 의존성
-└── README.md
+├── train_crossattn.py       # cross-attention 미세조정 학습 스크립트
+└── train_adaptors.py        # 색상별 adaptor 학습 스크립트
 ```
 
-> 상위 디렉터리 구조는 LumiNet 원본 레포와 거의 동일하며, 
-> Lumiply에 맞춰 `lumiply_inference.ipynb` / Flask 서버 부분이 추가되어 있습니다. 
+> 상위 디렉터리 구조는 LumiNet 원본 레포와 거의 동일하며,
+> Lumiply에 맞춰 `lumiply_inference.ipynb` / Flask 서버 부분이 추가되어 있습니다.
 > 튜닝된 체크포인트 및 어댑터는 [허깅페이스](https://huggingface.co/EthanYJ/Lumiply/tree/main)에서 다운 받으실 수 있습니다.
 
 ---
 
 ### 3. 모델 / 체크포인트 준비
 
-이 레포는 LumiNet 원본 모델을 그대로 사용하되, Lumiply 환경에서 다음과 같은 체크포인트 구성을 가정합니다.
+이 레포는 LumiNet 원본 모델을 기반으로 하되, Lumiply 환경에서 다음과 같은 체크포인트 구성을 가정합니다.
 
 - `ckpt/trained_crossattn.ckpt`
   - 프로젝트에서 fine‑tune 된 cross‑attention 기반 LumiNet checkpoint
 - `ckpt/new_decoder.ckpt`
   - bypass decoder (identity preservation 향상용)
+- `ckpt/last.pth.tar`
+  - 모델 로드 시 필요한 latent intrinsic 기본 가중치
 - `adaptors/adaptor_{color}.pth`
   - 색상별 adaptor 가중치  
-    (`white`, `red`, `orange`, `yellow`, `green`, `blue`, `purple`)
+    (`red`, `orange`, `yellow`, `green`, `blue`, `purple`)
 
-`lumiply_inference.ipynb` 상단의 핵심 설정은 대략 다음과 같은 형태입니다.
+`lumiply_inference.ipynb` 상단의 핵심 설정은 다음과 같은 형태입니다.
 
 ```python
 BASE_MODEL_PATH = "./ckpt/trained_crossattn.ckpt"
@@ -124,7 +128,7 @@ Colab 런타임에서는 아래 순서대로 실행하면 됩니다.
    login()  # HF 토큰 입력
    ```
 
-환경을 한 번 맞춰 두면, 이후에는 Colab 런타임 재시작 시 위 과정을 다시 수행하면 됩니다.
+환경을 한 번 맞춰두면, Colab 런타임 재시작할 때까지 위 과정을 다시 수행하실 필요 없습니다.
 
 ---
 
@@ -138,7 +142,7 @@ Colab 런타임에서는 아래 순서대로 실행하면 됩니다.
   - LumiNet base 모델과 bypass decoder를 메모리에 올립니다.
   - 전역 변수 `global_model`, `global_sampler` 에 보관해 요청마다 재사용합니다.
 - `run_inference_single_image(off_path, color, ...)`
-  - 입력 `off.png` 를 기준으로 512×512 해상도의 입력을 생성합니다.
+  - 입력 `off.png` 를 기준으로 512×512 해상도의 ref 이미지를 생성합니다.
   - `hint = concat(off_resized, white_ref)` 형태로 control 신호를 구성합니다.
   - DDIM Sampler로 latent 샘플링 후,
   - new decoder + identity feature(`ae_hs`)를 이용해 원본 해상도로 디코딩합니다.
@@ -174,7 +178,7 @@ def process_image():
   - `files["image"]`: 합성된 off 이미지 (`image/png`)
   - `form["job_id"]`: FastAPI 에서 생성한 job ID
   - `form["color"]`: `"white" | "red" | ... | "purple"`
-  - `form["callback_url"]`: 현재는 사용하지 않지만, 향후 push 방식 연동을 위한 예약 필드
+  - `form["callback_url"]`: push 방식 연동을 위한 예약 필드
 
 응답 예시:
 
@@ -200,7 +204,7 @@ def process_image():
 - `SharedDataMiddleware` 로 `/static/inference` 경로에 `INFERENCE_ROOT`를 마운트합니다.
 - `FlaskServerThread` 로 Flask 앱을 백그라운드 스레드에서 실행합니다.
 - `ngrok.set_auth_token(...)` 후 `ngrok.connect(5000)` 으로 public URL 을 획득합니다.
-- 성공 시 대략 다음과 같은 로그가 출력됩니다.
+- 성공 시 다음과 같은 로그가 출력됩니다.
 
 ```text
 ✅ Colab 서버가 시작되었습니다!
@@ -232,28 +236,38 @@ Lumiply 전체 플로우를 정리하면 다음과 같습니다.
 
 ---
 
-### 7. 로컬 테스트 (FastAPI 없이)
+### 7. 학습 코드 및 실험 노트북
 
-FastAPI/프론트엔드 없이 Colab/로컬에서 LumiNet 결과만 빠르게 보고 싶다면 다음 스크립트를 사용할 수 있습니다.
+실제 서비스 인퍼런스에는 직접적으로 사용되지는 않지만, 모델 재학습·분석 과정이 기록되어 있습니다.
 
-- **`relit_inference.py`**
-
-```bash
-python relit_inference.py
-```
-
-- 코드 상단에서 입력 경로, 참조 경로, DDIM step 등을 직접 지정하고 실행하면,  
-  로컬 폴더에 `output_*.png` 결과가 생성됩니다.
-
-또는, LumiNet 자체를 체험해 보고 싶을 경우 `gradio_demo.py` 를 실행해 간단한 웹 데모 UI를 띄울 수 있습니다.
-
-```bash
-python gradio_demo.py
-```
+- `train_crossattn.py`
+  - LumiNet의 cross-attention 부분을 Lumiply 데이터셋에 맞게 미세조정(fine-tuning)하는 스크립트입니다.
+  - 학습 결과물이 `ckpt/trained_crossattn.ckpt` 로 저장되며, 인퍼런스에서 BASE_MODEL_PATH 로 사용됩니다.
+- `train_adaptors.py`
+  - 색상별 adaptor(`adaptor_red.pth`, `adaptor_orange.pth`, …)를 학습하는 스크립트입니다.
+  - 동일한 베이스 모델 위에 조명 색상만 바꾸는 lightweight layer를 학습하는 구조입니다.
+- `Lumiply.ipynb`
+  - 데이터 로딩 → 증강 → 학습 → 간단한 추론까지 한 번에 실행해 볼 수 있는 end-to-end 노트북입니다.
+  - 코드 리뷰 용도로도 볼 수 있도록, 주요 하이퍼파라미터와 실험 설정을 셀 단위로 정리해 두었습니다.
+- `Augmentation.ipynb`
+  - 학습에 사용된 데이터 증강 파이프라인을 정리한 노트북입니다.
+  - 밝기/노이즈/자세 변화 등에 어떤 증강을 적용했는지 시각적으로 확인할 수 있습니다.
+- `EDA_SSIM.ipynb`, `EDA_LPIPS.ipynb`
+  - 생성 결과를 SSIM, LPIPS 관점에서 분석한 노트북입니다.
+  - 색상별/장면별 성능 차이를 간단히 살펴볼 수 있도록 그래프와 통계를 포함하고 있습니다.
 
 ---
 
-### 8. 라이선스 및 원저작자 크레딧
+### 8. 로컬 테스트 (FastAPI 없이)
+
+FastAPI/프론트엔드 없이 Colab/로컬에서 LumiNet 결과만 빠르게 보고 싶다면 `Lumiply.ipynb` 를 사용하시면 됩니다.
+
+- 노트북 셀에서 입력 경로, 참조 경로, DDIM step 등을 직접 지정하고 실행하면,  
+  로컬 폴더에 `output_*.png` 결과가 생성됩니다.
+
+---
+
+### 9. 라이선스 및 원저작자 크레딧
 
 이 레포는 [LumiNet 논문](https://arxiv.org/abs/2412.00177), [LumiNet Github](https://github.com/xyxingx/LumiNet/) 공식 코드와 모델을 기반으로 하며,  
 원저작자의 라이선스를 그대로 따릅니다.
@@ -261,8 +275,8 @@ python gradio_demo.py
 LumiNet / Latent‑Intrinsics 관련 연구 결과를 사용하거나 인용하는 경우,  
 아래와 같이 원 논문을 함께 인용해 주시는 것이 적절합니다.
 
-- LumiNet: *“LumiNet: Latent Intrinsics Meets Diffusion Models for Indoor Scene Relighting”* (CVPR 2025)
-- Latent‑Intrinsics: *“Latent Intrinsics Emerge from Training to Relight”* (NeurIPS 2024)
+- LumiNet: _“LumiNet: Latent Intrinsics Meets Diffusion Models for Indoor Scene Relighting”_ (CVPR 2025)
+- Latent‑Intrinsics: _“Latent Intrinsics Emerge from Training to Relight”_ (NeurIPS 2024)
 
 > 이 README는 “Lumiply 프로젝트에서 이 Colab 레포를 어떤 방식으로 사용하는지”를 설명하기 위한 문서입니다.  
 > LumiNet 자체의 학술적 설명, 공식 인용문은 원 LumiNet 레포와 논문을 참고해 주시기를 바랍니다.

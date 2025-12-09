@@ -14,12 +14,12 @@
 8. **Lumiply Client** 루트 위치에서 의존성을 설치(`npm install`)한 뒤 `npm start`을 실행하여 React를 구동합니다.
 9. 브라우저에서 `http://localhost:3000/` 또는 `http://127.0.0.1:3000/`로 접속하여 서비스를 사용합니다.
 
-이 저장소는 원본 [LumiNet](https://github.com/xyxingx/LumiNet/) 코드베이스 위에, **Lumiply 프로젝트에서 사용할 Colab용 추론 서버**를 올려 둔 버전입니다.  
+이 저장소는 원본 [LumiNet](https://github.com/xyxingx/LumiNet/) 코드베이스 위에, **파인튜닝한 Lumiply 체크포인트/어댑터와 Colab용 추론 서버**를 올려 둔 버전입니다.  
 구성은 다음과 같이 이해해주시면 됩니다.
 
 - `lumiply-client` (React SPA) 에서
 - `lumiply-server` (FastAPI)를 거쳐
-- **이 Colab 런타임에서 돌아가는 LumiNet 모델**에 조명 이미지를 요청하는 구조입니다.
+- **이 Colab 런타임에서 돌아가는 Lumiply 모델**에 조명 이미지를 요청하는 구조입니다.
 
 #### 요구사항:
 
@@ -33,7 +33,7 @@
 
 - **역할 요약**
 
-  - LumiNet 기반 relighting 모델을 **Colab GPU 위에서 서빙**합니다.
+  - Lumiply relighting 모델을 **Colab GPU 위에서 서빙**합니다.
   - FastAPI 서버(`lumiply-server`)가 `/process` 엔드포인트로 이미지를 보내면,
     - `white, red, orange, yellow, green, blue, purple` 색상별 결과를 생성하고
     - 결과 URL을 담은 JSON을 FastAPI에 반환합니다.
@@ -45,7 +45,7 @@
   | ---------------- | ------------------------------------------- |
   | `lumiply-client` | 방 사진 업로드, 조명 배치, 결과 비교 UI     |
   | `lumiply-server` | 클라이언트 요청 수신, Colab 호출, 상태 관리 |
-  | `lumiply-colab`  | LumiNet 기반 조명 생성, `/process` 제공     |
+  | `lumiply-colab`  | Lumiply 조명 생성, `/process` 제공     |
 
 세 레포지토리에서 `lumiply-colab` 은 **모델 서버(ML backend)**, `lumiply-server` 는 **API gateway**, `lumiply-client` 는 **UX 레이어**에 해당합니다.
 
@@ -75,7 +75,7 @@ lumiply-colab/
 └── train_adaptors.py        # 색상별 adaptor 학습 스크립트
 ```
 
-> 상위 디렉터리 구조는 LumiNet 원본 레포와 거의 동일하며,
+> 상위 디렉터리 구조는 LumiNet 원본 레포와 유사하며,
 > Lumiply에 맞춰 `lumiply_inference.ipynb` / Flask 서버 부분이 추가되어 있습니다.
 > 튜닝된 체크포인트 및 어댑터는 [허깅페이스](https://huggingface.co/EthanYJ/Lumiply/tree/main)에서 다운 받으실 수 있습니다.
 
@@ -86,7 +86,7 @@ lumiply-colab/
 이 레포는 LumiNet 원본 모델을 기반으로 하되, Lumiply 환경에서 다음과 같은 체크포인트 구성을 가정합니다.
 
 - `ckpt/trained_crossattn.ckpt`
-  - 프로젝트에서 fine‑tune 된 cross‑attention 기반 LumiNet checkpoint
+  - 프로젝트에서 fine‑tune 된 cross‑attention 기반 Lumiply checkpoint
 - `ckpt/new_decoder.ckpt`
   - bypass decoder (identity preservation 향상용)
 - `ckpt/last.pth.tar`
@@ -153,7 +153,7 @@ Colab 런타임에서는 아래 순서대로 실행하면 됩니다.
 #### 5‑1. 모델/엔진 초기화
 
 - `initialize_engine()`
-  - LumiNet base 모델과 bypass decoder를 메모리에 올립니다.
+  - base 모델과 bypass decoder를 메모리에 올립니다.
   - 전역 변수 `global_model`, `global_sampler` 에 보관해 요청마다 재사용합니다.
 - `run_inference_single_image(off_path, color, ...)`
   - 입력 `off.png` 를 기준으로 512×512 해상도의 ref 이미지를 생성합니다.
@@ -274,7 +274,7 @@ Lumiply 전체 플로우를 정리하면 다음과 같습니다.
 
 ### 8. 로컬 테스트 (FastAPI 없이)
 
-FastAPI/프론트엔드 없이 Colab/로컬에서 LumiNet 결과만 빠르게 보고 싶다면 `Lumiply.ipynb` 를 사용하시면 됩니다.
+FastAPI/프론트엔드 없이 Colab/로컬에서 Lumiply 결과만 빠르게 보고 싶다면 `Lumiply.ipynb` 를 사용하시면 됩니다.
 
 - 노트북 셀에서 입력 경로, 참조 경로, DDIM step 등을 직접 지정하고 실행하면,  
   로컬 폴더에 `output_*.png` 결과가 생성됩니다.
@@ -283,8 +283,7 @@ FastAPI/프론트엔드 없이 Colab/로컬에서 LumiNet 결과만 빠르게 �
 
 ### 9. 라이선스 및 원저작자 크레딧
 
-이 레포는 [LumiNet 논문](https://arxiv.org/abs/2412.00177), [LumiNet Github](https://github.com/xyxingx/LumiNet/) 공식 코드와 모델을 기반으로 하며,  
-원저작자의 라이선스를 그대로 따릅니다.
+이 레포는 [LumiNet 논문](https://arxiv.org/abs/2412.00177), [LumiNet Github](https://github.com/xyxingx/LumiNet/) 공식 코드와 모델을 기반으로 하며 원저작자의 라이선스를 따릅니다.
 
 LumiNet / Latent‑Intrinsics 관련 연구 결과를 사용하거나 인용하는 경우,  
 아래와 같이 원 논문을 함께 인용해 주시는 것이 적절합니다.

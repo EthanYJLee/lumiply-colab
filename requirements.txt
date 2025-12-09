@@ -1,11 +1,12 @@
 open-clip-torch==2.0.1
-torch==2.5.1
+torch
 positional-encodings
 opencv-python
 einops
 OmegaConf
 torchviz
 pytorch-lightning==1.5.0
-transformers==4.19.2
+transformers>=4.45.0
 tqdm
-xformers
+xformers==0.0.32.post2
+share

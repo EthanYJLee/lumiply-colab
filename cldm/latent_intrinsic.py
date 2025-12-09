@@ -1,3 +1,5 @@
+import os
+import os
 import numpy as np
 import torch,pdb
 from torch.nn.functional import silu
@@ -340,7 +342,23 @@ class LatentIntrinsc(torch.nn.Module):
                         channel_mult = [1, 2, 4, 4, 8, 16], affine_scale = 3e-5)
 
         model = model.cuda()
-        model_path = hf_hub_download(repo_id="xyxingx/LumiNet", filename="last.pth.tar")
+# #         model_path = hf_hub_download(repo_id="xyxingx/LumiNet", filename="last.pth.tar")
+        # [Auto Patch] 로컬 파일 우선 로드
+        if os.path.exists('./ckpt/last.pth.tar'): model_path = './ckpt/last.pth.tar'
+        elif os.path.exists('./ckpt/last.pth'): model_path = './ckpt/last.pth'
+        else: model_path = hf_hub_download(repo_id='xyxingx/LumiNet', filename='last.pth.tar')
+        # [Patch] 로컬 ckpt 우선 확인
+        if os.path.exists('./ckpt/last.pth.tar'):
+            model_path = './ckpt/last.pth.tar'
+        elif os.path.exists('./ckpt/last.pth'):
+            model_path = './ckpt/last.pth'
+        else:
+            print('⚠️ 로컬에서 last.pth.tar를 못 찾았습니다. 다운로드를 시도합니다.')
+#             model_path = hf_hub_download(repo_id='xyxingx/LumiNet', filename='last.pth.tar')
+        # [Auto Patch] 로컬 파일 우선 로드
+        if os.path.exists('./ckpt/last.pth.tar'): model_path = './ckpt/last.pth.tar'
+        elif os.path.exists('./ckpt/last.pth'): model_path = './ckpt/last.pth'
+        else: model_path = hf_hub_download(repo_id='xyxingx/LumiNet', filename='last.pth.tar')
         checkpoint = torch.load(model_path)
         new_dict = {}
         for k, value in checkpoint['state_dict'].items():
@@ -353,7 +371,7 @@ class LatentIntrinsc(torch.nn.Module):
             new_dict[key] = value
         checkpoint['ema_state_dict'] = new_dict
         model.load_state_dict(checkpoint['state_dict'])
-        # self.light_decoder = nn.Sequential(nn.Conv1d(16, 128,1), nn.SiLU(), nn.Conv1d(128, 77,1),nn.SiLU())
+        self.light_decoder = nn.Sequential(nn.Conv1d(16, 128,1), nn.SiLU(), nn.Conv1d(128, 77,1),nn.SiLU())
         self.light_decoder = nn.Sequential(nn.Linear(3072, 4096), nn.SiLU(), nn.Linear(4096, 4096),nn.SiLU(),
             nn.Linear(4096, 3072), nn.SiLU())
         # self.positional_encode = PositionalEncodingPermute1D(16)

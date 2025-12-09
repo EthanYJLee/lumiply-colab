@@ -3,3 +3,4 @@ ckpt/*
 adaptors/*
 *.ckpt
 !adaptors/.gitkeep
+lumiply_github.ipynb

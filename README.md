@@ -67,8 +67,8 @@ lumiply-colab/
 ├── Augmentation.ipynb       # 데이터 증강 파이프라인 정리 노트북
 ├── crawling_airbnb.ipynb    # AirBnB 침실 데이터 크롤링 노트북
 ├── crawling_ikea.ipynb      # IKEA 조명 이미지 크롤링 노트북
-├── EDA_LPIPS.ipynb          # LPIPS 기반 결과 분석 노트북
-├── EDA_SSIM.ipynb           # SSIM 기반 결과 분석 노트북
+├── Experiment_LPIPS.ipynb          # LPIPS 기반 결과 분석 노트북
+├── Experiment_SSIM.ipynb           # SSIM 기반 결과 분석 노트북
 ├── lumiply_inference.ipynb  # FastAPI와 연동되는 Colab 메인 노트북
 ├── Lumiply.ipynb            # 서버 연동 없이 로컬에서 추론 가능한 코드
 ├── README.md
@@ -268,7 +268,7 @@ Lumiply 전체 플로우를 정리하면 다음과 같습니다.
 - `Augmentation.ipynb`
   - 학습에 사용된 데이터 증강 파이프라인을 정리한 노트북입니다.
   - 밝기/노이즈/자세 변화 등에 어떤 증강을 적용했는지 시각적으로 확인할 수 있습니다.
-- `EDA_SSIM.ipynb`, `EDA_LPIPS.ipynb`
+- `Experiment_SSIM.ipynb`, `Experiment_LPIPS.ipynb`
   - 생성 결과를 SSIM, LPIPS 관점에서 분석한 노트북입니다.
   - 색상별/장면별 성능 차이를 간단히 살펴볼 수 있도록 그래프와 통계를 포함하고 있습니다.
 

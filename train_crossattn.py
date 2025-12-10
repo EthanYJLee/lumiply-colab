@@ -1,3 +1,18 @@
+'''
+train_crossattn.py는 U-net의 cross attention을 학습시키는 코드입니다.
+본 튜닝의 목적은 cross attention이 저희가 원하는 조명에만 조명정보를 전이시키도록하는것입니다.
+데이터셋은 같은 공간이지만 다른 조명조건을 가진 'on'과 'off' 이미지를 가진 폴더들을 보유한 상태에서 학습을 진행하여야합니다. 
+학습 중에는 'off'와 'white_ref'를 입력받아 U-net에서 생성된 노이즈와 실제값인 'on'에서 생성된 노이즈를 비교해 Loss를 정의하고
+Loss가 줄어드는 방향으로 진행하게됩니다.
+여기서 'off'는 조명이 꺼진사진, 'on'은 조명이 켜진사진, 'white_ref'는 흰색이미지로 '조명을 켜'라는 일종의 입력신호입니다.
+노이즈가 서로 같으면 같은 이미지를 생성하기때문에 Loss가 적으면 on과 비슷한 이미지를 생성해 내고 있다라고 볼 수 있습니다.
+학습이 진행중에는 각 epoch마다 현재 가중치로 last_checkpoint.pth를 덮어쓰며 현재 가중치로 추론한 검증이미지를 출력합니다.
+갑작스럽게 중단되는 경우 last_checkpoint.pth를 불러와 학습을 이어가도록 코드를 작성하였습니다.
+또한 10epoch마다 train / validation Loss 그래프를 업데이트하고 가중치를 저장하도록 코드를 작성하였습니다.
+매 epoch마다 계산되는 validation Loss가 학습 중 가장 낮은 값이 되면 그 가중치를 best_crossattn.ckpt로 저장하도록 하였습니다.
+'''
+
+
 import torch
 import os
 import cv2
@@ -15,6 +30,7 @@ from cldm.ddim_hacked import DDIMSampler
 
 # ==================================================================================
 # [1] 데이터셋 클래스
+# on / off 페어 있는 폴더 찾기
 # ==================================================================================
 class LightingDataset(Dataset):
     def __init__(self, root_dir):
@@ -60,7 +76,7 @@ class LightingDataset(Dataset):
         return {"jpg": jpg, "hint": hint}
 
 # ==================================================================================
-# [2] 유틸리티: 그래프 그리기
+# [2] 유틸리티: Loss 그래프 그리기
 # ==================================================================================
 def plot_loss_graph(train_losses, val_losses, save_path="loss_graph.png"):
     plt.figure(figsize=(10, 5))
@@ -81,8 +97,8 @@ def plot_loss_graph(train_losses, val_losses, save_path="loss_graph.png"):
 def train_step_safe():
     # --- 설정 ---
     # 경로
-    train_root = "./images/train" # train 데이터 디렉토리
-    val_root   = "./images/validation" # validation 데이터 디렉토리
+    train_root = "./images/train" # train 데이터 디렉토리 / 하위 디렉토리에 on/off 페어 존재
+    val_root   = "./images/validation" # validation 데이터 디렉토리 / 하위 디렉토리에 on/off 페어 존재
     
     # 저장소
     save_dir = "./crossattn_checkpoints" # ckpt 저장 위치
@@ -120,7 +136,8 @@ def train_step_safe():
     
     attn_count = 0
     for name, module in model.named_modules():
-        if isinstance(module, SpatialTransformer): # Diffusion에서 cross attention만 학습 대상에 포함
+        if isinstance(module, SpatialTransformer): # U-Net에서 cross attention만 학습 대상에 포함
+        # SpatialTransformer가 cross attention임
             for param in module.parameters():
                 param.requires_grad = True # cross attention만 동결 해제
                 trainable_params.append(param)
@@ -182,7 +199,7 @@ def train_step_safe():
                 # 정답 이미지(x)를 VAE를 통해 Latent 공간(z)으로 압축
             
             c = {"c_concat": [hint], "c_crossattn": [model.get_learned_conditioning([""] * x.shape[0])]} 
-            # c_concat(이미지 힌트)은 ControlNet으로, c_crossattn(더미 프롬프트)은 Diffusion 모델로 전달
+            # c_concat(이미지 힌트)은 ControlNet으로, c_crossattn(더미 프롬프트)은 Diffusion(U-Net) 모델로 전달
             t = torch.randint(0, model.num_timesteps, (z.shape[0],), device=model.device).long()
             
             loss, _ = model.p_losses(z, c, t) #./ldm/models/diffusion/ddpm.py의 p_losses함수 호출
@@ -250,16 +267,20 @@ def train_step_safe():
         # 학습이 잘 되고 있는지 눈으로 확인 (현재 가중치로 추론)
         sampler = DDIMSampler(model)
         with torch.no_grad():
-            c_cat = fixed_val_batch["hint"].cuda()
+            c_cat = fixed_val_batch["hint"].cuda() # off + white
             c = model.get_unconditional_conditioning(1)
-            cond = {"c_concat": [c_cat], "c_crossattn": [c]}
+            cond = {"c_concat": [c_cat], "c_crossattn": [c]} # controlNet으로 이동
             shape = (4, 512 // 8, 512 // 8)
             
             samples, _ = sampler.sample(50, 1, shape, cond, verbose=False, unconditional_guidance_scale=9.0)
+            # Diffusion에서 추론
+
+            # Decoding
             x_sample = model.decode_first_stage(samples)
             x_sample = torch.clamp((x_sample + 1.0) / 2.0, min=0.0, max=1.0)
             x_sample = x_sample.cpu().permute(0, 2, 3, 1).numpy()[0] * 255
             
+            # Image Saving
             img_path = os.path.join(sample_dir, f"val_ep{epoch+1:03d}.jpg")
             cv2.imwrite(img_path, cv2.cvtColor(x_sample.astype(np.uint8), cv2.COLOR_RGB2BGR))
 
